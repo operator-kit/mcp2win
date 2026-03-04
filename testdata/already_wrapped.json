@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "github-server": {
+      "command": "cmd.exe",
+      "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-github"]
+    }
+  }
+}

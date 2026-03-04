@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "stdio-server": {
+      "command": "npx",
+      "args": ["-y", "my-mcp-server"]
+    },
+    "http-server": {
+      "url": "http://localhost:3000/mcp"
+    },
+    "sse-server": {
+      "serverUrl": "http://localhost:3001/sse",
+      "type": "sse"
+    },
+    "native-server": {
+      "command": "node",
+      "args": ["server.js"]
+    }
+  }
+}

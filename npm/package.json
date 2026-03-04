@@ -1,0 +1,32 @@
+{
+  "name": "@operatorkit/mcp2win",
+  "version": "0.0.0-development",
+  "description": "Convert MCP server configs to Windows-compatible format",
+  "license": "MIT",
+  "homepage": "https://github.com/operator-kit/mcp2win",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/operator-kit/mcp2win.git"
+  },
+  "bugs": {
+    "url": "https://github.com/operator-kit/mcp2win/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "mcp2win": "bin/mcp2win.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node ./bin/install.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "tar": "^7.4.3"
+  }
+}

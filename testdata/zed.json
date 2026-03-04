@@ -1,0 +1,10 @@
+{
+  "context_servers": {
+    "my-server": {
+      "command": {
+        "path": "npx",
+        "args": ["-y", "my-mcp-server"]
+      }
+    }
+  }
+}

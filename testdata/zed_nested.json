@@ -1,0 +1,16 @@
+{
+  "context_servers": {
+    "fetch-server": {
+      "command": {
+        "path": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-fetch"]
+      }
+    },
+    "native-server": {
+      "command": {
+        "path": "node",
+        "args": ["server.js"]
+      }
+    }
+  }
+}

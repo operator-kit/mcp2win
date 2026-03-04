@@ -1,0 +1,21 @@
+# Binary
+/mcp2win
+/mcp2win.exe
+
+/build
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+/dist/
+
+# Project
+.agents
