@@ -1,6 +1,6 @@
 # mcp2win
 
-Finally, MCP servers that just work on Windows.
+Finally, MCP servers & commands that just work on Windows.
 
 Every MCP server README assumes macOS or Linux. You copy the config, paste it in, and nothing happens — because `npx`, `uvx`, and friends are `.cmd` batch shims on Windows, not real executables. `mcp2win` fixes this by wrapping commands with `cmd.exe /c` so your MCP servers actually start.
 
