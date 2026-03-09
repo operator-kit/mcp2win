@@ -103,6 +103,59 @@ func TestDetectMode(t *testing.T) {
 	}
 }
 
+func TestExtractFlagsStrict(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		wantFlags Flags
+		wantPos   []string
+	}{
+		{
+			name:      "flags before positional",
+			args:      []string{"--dry-run", "-y", "claude", "mcp", "add"},
+			wantFlags: Flags{DryRun: true, Yes: true},
+			wantPos:   []string{"claude", "mcp", "add"},
+		},
+		{
+			name:      "stops at first positional",
+			args:      []string{"claude", "mcp", "add", "-y", "npx"},
+			wantFlags: Flags{},
+			wantPos:   []string{"claude", "mcp", "add", "-y", "npx"},
+		},
+		{
+			name:      "preserves -y after provider",
+			args:      []string{"claude", "mcp", "add", "srv", "npx", "-y", "@pkg"},
+			wantFlags: Flags{},
+			wantPos:   []string{"claude", "mcp", "add", "srv", "npx", "-y", "@pkg"},
+		},
+		{
+			name:      "flag then -- preserved",
+			args:      []string{"--quiet", "claude", "mcp", "add", "--", "npx", "-y"},
+			wantFlags: Flags{Quiet: true},
+			wantPos:   []string{"claude", "mcp", "add", "--", "npx", "-y"},
+		},
+		{
+			name:      "no args",
+			args:      nil,
+			wantFlags: Flags{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			flags, pos := extractFlagsStrict(tt.args)
+			assert.Equal(t, tt.wantFlags, flags)
+			assert.Equal(t, tt.wantPos, pos)
+		})
+	}
+}
+
+func TestContainsDashDash(t *testing.T) {
+	assert.True(t, containsDashDash([]string{"a", "--", "b"}))
+	assert.False(t, containsDashDash([]string{"a", "b"}))
+	assert.False(t, containsDashDash(nil))
+}
+
 func TestRun_Version(t *testing.T) {
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
 	SetVersion("1.0.0", "abc123", "2026-01-01")

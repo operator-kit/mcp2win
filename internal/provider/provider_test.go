@@ -58,9 +58,14 @@ func TestClaude_ParseArgs(t *testing.T) {
 			wantCmd: "npx",
 		},
 		{
-			name:    "missing separator",
-			args:    []string{"mcp", "add", "srv", "npx"},
+			name:    "missing separator with unknown command",
+			args:    []string{"mcp", "add", "srv", "custom-cmd"},
 			wantErr: true,
+		},
+		{
+			name:    "missing separator with known command (heuristic)",
+			args:    []string{"mcp", "add", "srv", "npx", "-y", "@pkg"},
+			wantCmd: "npx",
 		},
 	}
 
@@ -127,6 +132,16 @@ func TestAmazonQ_ParseArgs(t *testing.T) {
 	assert.Equal(t, "npx", parsed.Command)
 }
 
+func TestAmazonQ_ParseArgs_NoSeparator_Heuristic(t *testing.T) {
+	a := &AmazonQ{cmd: "qchat"}
+	args := []string{"mcp", "add", "srv", "npx", "-y", "@pkg"}
+	parsed, err := a.ParseArgs(args)
+	require.NoError(t, err)
+	assert.Equal(t, "srv", parsed.ServerName)
+	assert.Equal(t, "npx", parsed.Command)
+	assert.Equal(t, []string{"-y", "@pkg"}, parsed.Args)
+}
+
 func TestGemini_ParseArgs(t *testing.T) {
 	g := &Gemini{}
 	args := []string{"mcp", "add", "fetch-server", "--", "npx", "-y", "@pkg"}
@@ -134,6 +149,29 @@ func TestGemini_ParseArgs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "fetch-server", parsed.ServerName)
 	assert.Equal(t, "npx", parsed.Command)
+}
+
+func TestGemini_ParseArgs_NoSeparator_Heuristic(t *testing.T) {
+	g := &Gemini{}
+	args := []string{"mcp", "add", "fetch-server", "npx", "-y", "@pkg"}
+	parsed, err := g.ParseArgs(args)
+	require.NoError(t, err)
+	assert.Equal(t, "fetch-server", parsed.ServerName)
+	assert.Equal(t, "npx", parsed.Command)
+	assert.Equal(t, []string{"-y", "@pkg"}, parsed.Args)
+}
+
+func TestClaude_ParseArgs_NoSeparator_WithScope(t *testing.T) {
+	c := &Claude{}
+	// Simulates: claude mcp add -s user playwright npx -y @playwright/mcp-server
+	// (no '--', consumed by npm shim)
+	args := []string{"mcp", "add", "-s", "user", "playwright", "npx", "-y", "@playwright/mcp-server"}
+	parsed, err := c.ParseArgs(args)
+	require.NoError(t, err)
+	assert.Equal(t, "playwright", parsed.ServerName)
+	assert.Equal(t, "user", parsed.Scope)
+	assert.Equal(t, "npx", parsed.Command)
+	assert.Equal(t, []string{"-y", "@playwright/mcp-server"}, parsed.Args)
 }
 
 func TestGemini_FormatOutput(t *testing.T) {

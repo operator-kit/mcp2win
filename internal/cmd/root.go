@@ -69,6 +69,12 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// Mode detection.
 	mode := detectMode(positional, stdin)
 
+	// CLI mode without '--': re-extract flags strictly (only before first positional).
+	// Prevents stealing sub-command flags like -y when '--' is consumed by npm shim.
+	if mode == modeCLI && !containsDashDash(positional) {
+		flags, positional = extractFlagsStrict(args)
+	}
+
 	// Start background update check (skip for update/config/version/help).
 	if mode != modeUpdate && mode != modeConfig {
 		startUpdateCheck()
@@ -181,6 +187,60 @@ func startUpdateCheck() {
 	go func() {
 		updateResult <- selfupdate.CheckForUpdate(appVersion)
 	}()
+}
+
+func containsDashDash(args []string) bool {
+	for _, a := range args {
+		if a == "--" {
+			return true
+		}
+	}
+	return false
+}
+
+// extractFlagsStrict only consumes flags before the first positional arg.
+// Used for CLI mode when '--' is missing (consumed by npm shim), to avoid
+// stealing sub-command flags like -y from 'npx -y'.
+func extractFlagsStrict(args []string) (Flags, []string) {
+	var f Flags
+	var positional []string
+
+	i := 0
+	for i < len(args) {
+		a := args[i]
+		switch a {
+		case "--no-backup":
+			f.NoBackup = true
+		case "-o":
+			if i+1 < len(args) {
+				i++
+				f.Output = args[i]
+			}
+		case "--dry-run":
+			f.DryRun = true
+		case "--quiet", "-q":
+			f.Quiet = true
+		case "--unwrap":
+			f.Unwrap = true
+		case "--resolve":
+			f.Resolve = true
+		case "--yes", "-y":
+			f.Yes = true
+		case "--no-color":
+			f.NoColor = true
+		case "--version", "-v":
+			f.Version = true
+		case "--help", "-h":
+			f.Help = true
+		default:
+			// First non-flag arg: everything from here is positional.
+			positional = append(positional, args[i:]...)
+			return f, positional
+		}
+		i++
+	}
+
+	return f, positional
 }
 
 // extractFlags pre-scans args and separates flags from positional args.

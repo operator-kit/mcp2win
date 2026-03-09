@@ -48,6 +48,7 @@ function main() {
 
   const child = spawn(binaryPath, process.argv.slice(2), {
     stdio: "inherit",
+    windowsVerbatimArguments: process.platform === "win32",
   });
 
   child.on("error", (err) => {

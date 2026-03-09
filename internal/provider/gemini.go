@@ -25,18 +25,27 @@ func (g *Gemini) ParseArgs(args []string) (ParsedCLI, error) {
 		}
 	}
 
-	if dashDashIdx == -1 {
-		return ParsedCLI{}, fmt.Errorf("expected '--' separator: gemini mcp add NAME -- CMD ARGS...")
-	}
-
 	var serverName string
-	if dashDashIdx > 0 {
-		serverName = rest[0]
-	}
+	var cmdArgs []string
 
-	cmdArgs := rest[dashDashIdx+1:]
-	if len(cmdArgs) == 0 {
-		return ParsedCLI{}, fmt.Errorf("no command after '--'")
+	if dashDashIdx >= 0 {
+		if dashDashIdx > 0 {
+			serverName = rest[0]
+		}
+		cmdArgs = rest[dashDashIdx+1:]
+		if len(cmdArgs) == 0 {
+			return ParsedCLI{}, fmt.Errorf("no command after '--'")
+		}
+	} else {
+		// No separator — heuristic fallback.
+		cmdIdx := InferSeparator(rest, 1) // skip index 0 (server name required)
+		if cmdIdx < 0 {
+			return ParsedCLI{}, fmt.Errorf("expected '--' separator: gemini mcp add NAME -- CMD ARGS...")
+		}
+		if cmdIdx > 0 {
+			serverName = rest[0]
+		}
+		cmdArgs = rest[cmdIdx:]
 	}
 
 	return ParsedCLI{

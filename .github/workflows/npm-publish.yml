@@ -20,6 +20,11 @@ jobs:
           node-version: 24
           registry-url: "https://registry.npmjs.org"
 
+      - name: Verify README included
+        working-directory: npm
+        run: |
+          npm pack --dry-run 2>&1 | grep -q "README.md" || { echo "ERROR: README.md missing from package"; exit 1; }
+
       - name: Publish npm package
         working-directory: npm
         run: |

@@ -20,14 +20,13 @@ func (c *Claude) ParseArgs(args []string) (ParsedCLI, error) {
 
 	rest := args[2:] // after "mcp add"
 
-	// Extract flags and find server name + command.
 	var scope string
 	envVars := make(map[string]string)
 	var serverName string
 	var cmdArgs []string
-	dashDashIdx := -1
 
 	// Find -- separator.
+	dashDashIdx := -1
 	for i, a := range rest {
 		if a == "--" {
 			dashDashIdx = i
@@ -35,48 +34,73 @@ func (c *Claude) ParseArgs(args []string) (ParsedCLI, error) {
 		}
 	}
 
-	if dashDashIdx == -1 {
-		return ParsedCLI{}, fmt.Errorf("expected '--' separator: claude mcp add [flags] NAME -- CMD ARGS...")
-	}
-
-	// Before --: flags + server name.
-	before := rest[:dashDashIdx]
-	// After --: command + args.
-	if dashDashIdx+1 < len(rest) {
-		cmdArgs = rest[dashDashIdx+1:]
-	}
-
-	if len(cmdArgs) == 0 {
-		return ParsedCLI{}, fmt.Errorf("no command after '--'")
-	}
-
-	// Parse flags from "before" portion, last non-flag token is server name.
-	var nonFlags []string
-	for i := 0; i < len(before); i++ {
-		a := before[i]
-		switch {
-		case a == "--scope" || a == "-s":
-			if i+1 < len(before) {
-				i++
-				scope = before[i]
-			}
-		case a == "--env" || a == "-e":
-			if i+1 < len(before) {
-				i++
-				parts := strings.SplitN(before[i], "=", 2)
-				if len(parts) == 2 {
-					envVars[parts[0]] = parts[1]
-				}
-			}
-		default:
-			nonFlags = append(nonFlags, a)
+	if dashDashIdx >= 0 {
+		// Explicit separator — parse flags from tokens before --.
+		before := rest[:dashDashIdx]
+		if dashDashIdx+1 < len(rest) {
+			cmdArgs = rest[dashDashIdx+1:]
 		}
-	}
+		if len(cmdArgs) == 0 {
+			return ParsedCLI{}, fmt.Errorf("no command after '--'")
+		}
 
-	if len(nonFlags) == 0 {
-		return ParsedCLI{}, fmt.Errorf("no server name specified")
+		var nonFlags []string
+		for i := 0; i < len(before); i++ {
+			a := before[i]
+			switch {
+			case a == "--scope" || a == "-s":
+				if i+1 < len(before) {
+					i++
+					scope = before[i]
+				}
+			case a == "--env" || a == "-e":
+				if i+1 < len(before) {
+					i++
+					parts := strings.SplitN(before[i], "=", 2)
+					if len(parts) == 2 {
+						envVars[parts[0]] = parts[1]
+					}
+				}
+			default:
+				nonFlags = append(nonFlags, a)
+			}
+		}
+		if len(nonFlags) == 0 {
+			return ParsedCLI{}, fmt.Errorf("no server name specified")
+		}
+		serverName = nonFlags[len(nonFlags)-1]
+	} else {
+		// No separator — heuristic: find first known command in non-flag tokens.
+		// This handles cases where '--' is consumed by npm shim layers.
+		var nonFlags []string
+		for i := 0; i < len(rest); i++ {
+			a := rest[i]
+			switch {
+			case a == "--scope" || a == "-s":
+				if i+1 < len(rest) {
+					i++
+					scope = rest[i]
+				}
+			case a == "--env" || a == "-e":
+				if i+1 < len(rest) {
+					i++
+					parts := strings.SplitN(rest[i], "=", 2)
+					if len(parts) == 2 {
+						envVars[parts[0]] = parts[1]
+					}
+				}
+			default:
+				nonFlags = append(nonFlags, a)
+			}
+		}
+
+		cmdIdx := InferSeparator(nonFlags, 1) // skip index 0 (server name required)
+		if cmdIdx < 1 {
+			return ParsedCLI{}, fmt.Errorf("expected '--' separator: claude mcp add [flags] NAME -- CMD ARGS...")
+		}
+		serverName = nonFlags[cmdIdx-1]
+		cmdArgs = nonFlags[cmdIdx:]
 	}
-	serverName = nonFlags[len(nonFlags)-1]
 
 	return ParsedCLI{
 		ServerName: serverName,

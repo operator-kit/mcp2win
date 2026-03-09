@@ -28,18 +28,31 @@ func (a *AmazonQ) ParseArgs(args []string) (ParsedCLI, error) {
 		}
 	}
 
-	if dashDashIdx == -1 {
-		return ParsedCLI{}, fmt.Errorf("expected '--' separator: %s mcp add [NAME] -- CMD ARGS...", a.cmd)
-	}
-
 	var serverName string
-	if dashDashIdx > 0 {
-		serverName = rest[dashDashIdx-1]
-	}
+	var cmdArgs []string
 
-	cmdArgs := rest[dashDashIdx+1:]
-	if len(cmdArgs) == 0 {
-		return ParsedCLI{}, fmt.Errorf("no command after '--'")
+	if dashDashIdx >= 0 {
+		if dashDashIdx > 0 {
+			serverName = rest[dashDashIdx-1]
+		}
+		cmdArgs = rest[dashDashIdx+1:]
+		if len(cmdArgs) == 0 {
+			return ParsedCLI{}, fmt.Errorf("no command after '--'")
+		}
+	} else {
+		// No separator — heuristic fallback.
+		// Try index >= 1 first (prefer leaving room for server name), then 0.
+		cmdIdx := InferSeparator(rest, 1)
+		if cmdIdx < 0 {
+			cmdIdx = InferSeparator(rest, 0)
+		}
+		if cmdIdx < 0 {
+			return ParsedCLI{}, fmt.Errorf("expected '--' separator: %s mcp add [NAME] -- CMD ARGS...", a.cmd)
+		}
+		if cmdIdx > 0 {
+			serverName = rest[cmdIdx-1]
+		}
+		cmdArgs = rest[cmdIdx:]
 	}
 
 	return ParsedCLI{

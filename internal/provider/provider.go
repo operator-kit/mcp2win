@@ -1,6 +1,10 @@
 package provider
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/operator-kit/mcp2win/internal/transform"
+)
 
 // ParsedCLI holds the parsed components of a CLI command.
 type ParsedCLI struct {
@@ -18,6 +22,18 @@ type Provider interface {
 	ParseArgs(args []string) (ParsedCLI, error)
 	FormatOutput(parsed ParsedCLI, transformed map[string]any) string
 	ExecArgs(parsed ParsedCLI, transformed map[string]any) (string, []string)
+}
+
+// InferSeparator finds the index of the first known command in tokens,
+// starting from the given offset. Used as a fallback when '--' is missing
+// (e.g., consumed by npm shim). Returns -1 if no known command found.
+func InferSeparator(tokens []string, startAt int) int {
+	for i := startAt; i < len(tokens); i++ {
+		if transform.IsKnownCommand(tokens[i]) {
+			return i
+		}
+	}
+	return -1
 }
 
 // DetectProvider returns the matching provider and how many tokens it consumed.

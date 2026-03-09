@@ -18,6 +18,12 @@ var nativeCommands = map[string]bool{
 	"deno": true, "bun": true, "cmd": true,
 }
 
+// IsKnownCommand returns true if cmd is any known command (shim or native).
+func IsKnownCommand(cmd string) bool {
+	cmd = normalize(cmd)
+	return shimCommands[cmd] || nativeCommands[cmd]
+}
+
 // NeedsWrapping returns true if cmd is a known shim command.
 func NeedsWrapping(cmd string) bool {
 	cmd = normalize(cmd)

@@ -89,11 +89,27 @@ func TestRunCLI_AlreadyWrapped(t *testing.T) {
 
 func TestRunCLI_GenericNoSeparator(t *testing.T) {
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	args := []string{"somecli", "npx", "-y"}
+	// Use unknown command — no heuristic match, so still errors.
+	args := []string{"somecli", "unknown-cmd", "arg1"}
 
 	code := runCLI(args, Flags{}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 1, code)
 	assert.Contains(t, stderr.String(), "unknown provider")
+}
+
+func TestRunCLI_GenericNoSeparator_Heuristic(t *testing.T) {
+	// Known command without '--' — heuristic infers the separator.
+	withMockExec(t, func(exe *string, args *[]string) {
+		stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+		cliArgs := []string{"somecli", "mcp", "add", "npx", "-y", "@pkg"}
+
+		code := runCLI(cliArgs, Flags{Yes: true}, defaultCfg(), stdout, stderr)
+		assert.Equal(t, 0, code)
+		assert.Equal(t, "somecli", *exe)
+		assert.Contains(t, *args, "cmd.exe")
+		assert.Contains(t, *args, "/c")
+		assert.Contains(t, *args, "npx")
+	})
 }
 
 // --- Exec tests (default behavior with --yes to skip prompt) ---
@@ -192,6 +208,38 @@ func TestRunCLI_Generic_Exec(t *testing.T) {
 		assert.Equal(t, "somecli", *exe)
 		assert.Contains(t, *args, "cmd.exe")
 		assert.Contains(t, *args, "/c")
+	})
+}
+
+// --- No separator tests (heuristic, simulating npm shim consuming '--') ---
+
+func TestRunCLI_Claude_NoSeparator_DryRun(t *testing.T) {
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+	// Simulates '--' consumed by npm shim.
+	args := []string{"claude", "mcp", "add", "github-server", "npx", "-y", "@modelcontextprotocol/server-github"}
+
+	code := runCLI(args, Flags{DryRun: true}, defaultCfg(), stdout, stderr)
+	assert.Equal(t, 0, code)
+	assert.Contains(t, stdout.String(), "claude mcp add-json")
+	assert.Contains(t, stdout.String(), "github-server")
+	assert.Contains(t, stdout.String(), "cmd.exe")
+}
+
+func TestRunCLI_Claude_NoSeparator_WithScope_Exec(t *testing.T) {
+	withMockExec(t, func(exe *string, args *[]string) {
+		stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+		// Simulates: claude mcp add -s user playwright npx -y @playwright/mcp-server
+		cliArgs := []string{"claude", "mcp", "add", "-s", "user", "playwright", "npx", "-y", "@playwright/mcp-server"}
+
+		code := runCLI(cliArgs, Flags{Yes: true}, defaultCfg(), stdout, stderr)
+		assert.Equal(t, 0, code)
+		assert.Equal(t, "claude", *exe)
+		assert.Contains(t, *args, "--scope")
+		assert.Contains(t, *args, "user")
+		assert.Contains(t, *args, "playwright")
+		// Verify the JSON includes the -y arg for npx.
+		jsonArg := (*args)[len(*args)-1]
+		assert.Contains(t, jsonArg, `"/c","npx","-y"`)
 	})
 }
 

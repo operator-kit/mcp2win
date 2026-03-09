@@ -82,7 +82,10 @@ func runCLI(positional []string, flags Flags, cfg *config.Config, stdout, stderr
 }
 
 func runGenericCLI(positional []string, flags Flags, cfg *config.Config, stdout, stderr io.Writer) int {
-	// Find -- separator.
+	// Find -- separator or infer command position.
+	var prefix []string
+	var cmdArgs []string
+
 	dashIdx := -1
 	for i, a := range positional {
 		if a == "--" {
@@ -91,13 +94,31 @@ func runGenericCLI(positional []string, flags Flags, cfg *config.Config, stdout,
 		}
 	}
 
-	if dashIdx == -1 || dashIdx+1 >= len(positional) {
+	if dashIdx >= 0 && dashIdx+1 < len(positional) {
+		// Explicit separator.
+		prefix = positional[:dashIdx]
+		cmdArgs = positional[dashIdx+1:]
+	} else {
+		// No '--' — heuristic: find first known command.
+		cmdIdx := -1
+		for i, a := range positional {
+			if transform.IsKnownCommand(a) {
+				cmdIdx = i
+				break
+			}
+		}
+		if cmdIdx > 0 {
+			prefix = positional[:cmdIdx]
+			cmdArgs = positional[cmdIdx:]
+		}
+	}
+
+	if len(cmdArgs) == 0 {
 		fmt.Fprintf(stderr, "Error: unknown provider %q — expected '--' separator before command\n", positional[0])
 		fmt.Fprintln(stderr, "Known providers: claude, code, qchat, q, gemini")
 		return 1
 	}
 
-	cmdArgs := positional[dashIdx+1:]
 	cmd := cmdArgs[0]
 
 	if transform.IsAlreadyWrapped(cmd) {
@@ -110,7 +131,6 @@ func runGenericCLI(positional []string, flags Flags, cfg *config.Config, stdout,
 	}
 
 	// Generic wrapping: prefix with cmd.exe /c.
-	prefix := positional[:dashIdx]
 	var parts []string
 	parts = append(parts, prefix...)
 	parts = append(parts, "--", "cmd.exe", "/c")
