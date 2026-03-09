@@ -64,6 +64,12 @@ mcp2win '{"command":"npx","args":["-y","@pkg"]}'
 cat config.json | mcp2win
 ```
 
+**Update:**
+
+```bash
+mcp2win update                                  # update to latest version
+```
+
 **Preferences:**
 
 ```bash

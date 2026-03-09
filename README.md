@@ -101,6 +101,16 @@ cat claude_desktop_config.json | mcp2win
 mcp2win '{"mcpServers":{"s1":{"command":"npx","args":["-y","@pkg"]}}}'
 ```
 
+### Updating
+
+mcp2win checks for updates in the background and notifies you when a new version is available. To update:
+
+```bash
+mcp2win update
+```
+
+Disable background checks with `MCP2WIN_NO_UPDATE_CHECK=1`.
+
 ### Preferences
 
 When you answer **always** at a prompt, the preference is saved. You can also manage preferences directly:
