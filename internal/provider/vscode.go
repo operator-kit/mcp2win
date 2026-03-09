@@ -70,3 +70,18 @@ func (v *VSCode) FormatOutput(parsed ParsedCLI, transformed map[string]any) stri
 	jsonBytes, _ := json.Marshal(data)
 	return fmt.Sprintf("code --add-mcp '%s'", string(jsonBytes))
 }
+
+func (v *VSCode) ExecArgs(parsed ParsedCLI, transformed map[string]any) (string, []string) {
+	data := make(map[string]any)
+	if parsed.Extra != nil {
+		for k, val := range parsed.Extra {
+			data[k] = val
+		}
+	}
+	data["command"] = transformed["command"]
+	if args, ok := transformed["args"]; ok {
+		data["args"] = args
+	}
+	jsonBytes, _ := json.Marshal(data)
+	return "code", []string{"--add-mcp", string(jsonBytes)}
+}

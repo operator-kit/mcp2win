@@ -147,3 +147,108 @@ func TestGemini_FormatOutput(t *testing.T) {
 	assert.Contains(t, output, "gemini mcp add fetch-server -- cmd.exe /c npx -y @pkg")
 	assert.Contains(t, output, "natively")
 }
+
+// --- ExecArgs tests ---
+
+func TestClaude_ExecArgs(t *testing.T) {
+	c := &Claude{}
+	parsed := ParsedCLI{
+		ServerName: "github-server",
+		Command:    "npx",
+		Args:       []string{"-y", "@pkg"},
+	}
+	transformed := map[string]any{
+		"command": "cmd.exe",
+		"args":    []any{"/c", "npx", "-y", "@pkg"},
+	}
+
+	exe, args := c.ExecArgs(parsed, transformed)
+	assert.Equal(t, "claude", exe)
+	assert.Equal(t, "mcp", args[0])
+	assert.Equal(t, "add-json", args[1])
+	assert.Equal(t, "github-server", args[2])
+	// JSON arg: no surrounding single quotes
+	jsonArg := args[3]
+	assert.NotContains(t, jsonArg, "'")
+	assert.Contains(t, jsonArg, "cmd.exe")
+	assert.Contains(t, jsonArg, "/c")
+}
+
+func TestClaude_ExecArgs_WithScope(t *testing.T) {
+	c := &Claude{}
+	parsed := ParsedCLI{
+		ServerName: "srv",
+		Scope:      "user",
+	}
+	transformed := map[string]any{
+		"command": "cmd.exe",
+		"args":    []any{"/c", "npx"},
+	}
+
+	exe, args := c.ExecArgs(parsed, transformed)
+	assert.Equal(t, "claude", exe)
+	assert.Contains(t, args, "--scope")
+	assert.Contains(t, args, "user")
+}
+
+func TestClaude_ExecArgs_WithEnv(t *testing.T) {
+	c := &Claude{}
+	parsed := ParsedCLI{
+		ServerName: "srv",
+		EnvVars:    map[string]string{"TOKEN": "abc"},
+	}
+	transformed := map[string]any{
+		"command": "cmd.exe",
+		"args":    []any{"/c", "npx"},
+	}
+
+	_, args := c.ExecArgs(parsed, transformed)
+	jsonArg := args[len(args)-1]
+	assert.Contains(t, jsonArg, "TOKEN")
+	assert.Contains(t, jsonArg, "abc")
+}
+
+func TestVSCode_ExecArgs(t *testing.T) {
+	v := &VSCode{}
+	parsed := ParsedCLI{
+		ServerName: "my-server",
+		Extra:      map[string]any{"name": "my-server"},
+	}
+	transformed := map[string]any{
+		"command": "cmd.exe",
+		"args":    []any{"/c", "npx", "-y", "@pkg"},
+	}
+
+	exe, args := v.ExecArgs(parsed, transformed)
+	assert.Equal(t, "code", exe)
+	assert.Equal(t, "--add-mcp", args[0])
+	// No surrounding quotes on JSON
+	assert.NotContains(t, args[1], "'")
+	assert.Contains(t, args[1], "cmd.exe")
+}
+
+func TestAmazonQ_ExecArgs(t *testing.T) {
+	a := &AmazonQ{cmd: "qchat"}
+	parsed := ParsedCLI{ServerName: "srv"}
+	transformed := map[string]any{
+		"command": "cmd.exe",
+		"args":    []any{"/c", "npx", "-y", "@pkg"},
+	}
+
+	exe, args := a.ExecArgs(parsed, transformed)
+	assert.Equal(t, "qchat", exe)
+	assert.Equal(t, []string{"mcp", "add", "srv", "--", "cmd.exe", "/c", "npx", "-y", "@pkg"}, args)
+}
+
+func TestGemini_ExecArgs(t *testing.T) {
+	g := &Gemini{}
+	parsed := ParsedCLI{ServerName: "fetch-server"}
+	transformed := map[string]any{
+		"command": "cmd.exe",
+		"args":    []any{"/c", "npx", "-y", "@pkg"},
+	}
+
+	exe, args := g.ExecArgs(parsed, transformed)
+	assert.Equal(t, "gemini", exe)
+	assert.Equal(t, []string{"mcp", "add", "fetch-server", "--", "cmd.exe", "/c", "npx", "-y", "@pkg"}, args)
+}

@@ -13,28 +13,35 @@ func printUsage(w io.Writer) {
 	fmt.Fprintf(w, `mcp2win — convert MCP server configs to Windows format
 
 Usage:
-  mcp2win [flags] <file.json>          Transform a config file (Mode 3)
-  mcp2win [flags] '<json>'             Transform inline JSON (Mode 2)
-  echo '<json>' | mcp2win [flags]      Transform JSON from stdin (Mode 2)
-  mcp2win [flags] claude mcp add ...   Translate CLI command (Mode 1)
+  mcp2win [flags] <file.json>          Transform & write config file
+  mcp2win [flags] '<json>'             Transform inline JSON
+  echo '<json>' | mcp2win [flags]      Transform JSON from stdin
+  mcp2win [flags] claude mcp add ...   Translate & run CLI command
+  mcp2win config <command>             View/modify preferences
 
 Flags:
-  --write        Write changes back to the file (creates .bak backup)
-  --no-backup    Skip .bak backup when using --write
-  -o <path>      Write output to a different file
-  --dry-run      Show preview only, no JSON output
-  --quiet        Suppress preview, output only JSON
-  --unwrap       Reverse: remove cmd.exe /c wrapping
-  --resolve      Resolve commands to absolute paths via PATH/PATHEXT
-  --no-color     Disable colored output
-  --version      Show version
-  --help         Show this help
+  --yes, -y    Skip confirmation prompt (non-interactive mode)
+  --dry-run    Preview only, no action
+  --quiet      Suppress preview output
+  --no-backup  Skip .bak backup when writing files
+  -o <path>    Write output to a different file
+  --unwrap     Reverse: remove cmd.exe /c wrapping
+  --resolve    Resolve commands to absolute paths via PATH/PATHEXT
+  --no-color   Disable colored output
+  --version    Show version
+  --help       Show this help
+
+Config:
+  mcp2win config get [key]           Show preferences
+  mcp2win config set <key> <value>   Set a preference
+  mcp2win config path                Show config file location
+  mcp2win config reset               Reset all preferences
 
 Examples:
-  mcp2win claude_desktop_config.json
-  mcp2win --write claude_desktop_config.json
-  mcp2win '{"command":"npx","args":["-y","@modelcontextprotocol/server-github"]}'
   mcp2win claude mcp add github-server -- npx -y @modelcontextprotocol/server-github
+  mcp2win claude_desktop_config.json
+  mcp2win -y claude_desktop_config.json
+  mcp2win '{"command":"npx","args":["-y","@modelcontextprotocol/server-github"]}'
   mcp2win --unwrap '{"command":"cmd.exe","args":["/c","npx","-y","@pkg"]}'
 `)
 }

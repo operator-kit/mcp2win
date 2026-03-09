@@ -9,10 +9,10 @@ import (
 
 func TestExtractFlags(t *testing.T) {
 	tests := []struct {
-		name       string
-		args       []string
-		wantFlags  Flags
-		wantPos    []string
+		name      string
+		args      []string
+		wantFlags Flags
+		wantPos   []string
 	}{
 		{
 			name:      "no flags",
@@ -21,15 +21,21 @@ func TestExtractFlags(t *testing.T) {
 			wantPos:   []string{"file.json"},
 		},
 		{
-			name:      "write flag after file",
-			args:      []string{"file.json", "--write"},
-			wantFlags: Flags{Write: true},
+			name:      "yes flag",
+			args:      []string{"file.json", "--yes"},
+			wantFlags: Flags{Yes: true},
+			wantPos:   []string{"file.json"},
+		},
+		{
+			name:      "yes short flag",
+			args:      []string{"-y", "file.json"},
+			wantFlags: Flags{Yes: true},
 			wantPos:   []string{"file.json"},
 		},
 		{
 			name:      "multiple flags",
-			args:      []string{"--write", "--no-backup", "file.json"},
-			wantFlags: Flags{Write: true, NoBackup: true},
+			args:      []string{"--yes", "--no-backup", "file.json"},
+			wantFlags: Flags{Yes: true, NoBackup: true},
 			wantPos:   []string{"file.json"},
 		},
 		{
@@ -83,6 +89,7 @@ func TestDetectMode(t *testing.T) {
 		{"inline JSON object", []string{`{"command":"npx"}`}, modeJSON},
 		{"inline JSON array", []string{`[{"command":"npx"}]`}, modeJSON},
 		{"json file extension", []string{"config.json"}, modeFile},
+		{"config subcommand", []string{"config", "get"}, modeConfig},
 		{"unknown command (fallback)", []string{"somecmd", "arg1"}, modeCLI},
 		{"empty args", nil, modeUnknown},
 	}

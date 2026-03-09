@@ -17,6 +17,7 @@ type Provider interface {
 	Name() string
 	ParseArgs(args []string) (ParsedCLI, error)
 	FormatOutput(parsed ParsedCLI, transformed map[string]any) string
+	ExecArgs(parsed ParsedCLI, transformed map[string]any) (string, []string)
 }
 
 // DetectProvider returns the matching provider and how many tokens it consumed.

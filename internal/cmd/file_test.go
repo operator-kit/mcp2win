@@ -7,18 +7,35 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/operator-kit/mcp2win/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunFile_Claude(t *testing.T) {
-	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+func defaultCfg() *config.Config {
+	return &config.Config{}
+}
 
-	code := runFile([]string{"../../testdata/claude.json"}, Flags{Quiet: true}, stdout, stderr)
+func TestRunFile_Claude_DryRun(t *testing.T) {
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+	code := runFile([]string{"../../testdata/claude.json"}, Flags{DryRun: true}, defaultCfg(), stdout, stderr)
+	assert.Equal(t, 0, code)
+	assert.Empty(t, stdout.String())
+	assert.Contains(t, stderr.String(), "Changes:")
+}
+
+func TestRunFile_Claude_OutputFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	outFile := filepath.Join(tmpDir, "output.json")
+
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+	code := runFile([]string{"../../testdata/claude.json"}, Flags{Output: outFile, Yes: true, Quiet: true}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 0, code)
 
+	content, err := os.ReadFile(outFile)
+	require.NoError(t, err)
 	var out map[string]any
-	require.NoError(t, json.Unmarshal(stdout.Bytes(), &out))
+	require.NoError(t, json.Unmarshal(content, &out))
 	servers := out["mcpServers"].(map[string]any)
 
 	gh := servers["github-server"].(map[string]any)
@@ -29,7 +46,6 @@ func TestRunFile_Claude(t *testing.T) {
 }
 
 func TestRunFile_Write(t *testing.T) {
-	// Copy testdata to temp dir.
 	tmpDir := t.TempDir()
 	src, err := os.ReadFile("../../testdata/claude.json")
 	require.NoError(t, err)
@@ -38,7 +54,7 @@ func TestRunFile_Write(t *testing.T) {
 	require.NoError(t, os.WriteFile(tmpFile, src, 0644))
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	code := runFile([]string{tmpFile}, Flags{Write: true, Quiet: true}, stdout, stderr)
+	code := runFile([]string{tmpFile}, Flags{Yes: true, Quiet: true}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 0, code)
 
 	// Check .bak was created.
@@ -66,7 +82,7 @@ func TestRunFile_WriteNoBackup(t *testing.T) {
 	require.NoError(t, os.WriteFile(tmpFile, src, 0644))
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	code := runFile([]string{tmpFile}, Flags{Write: true, NoBackup: true, Quiet: true}, stdout, stderr)
+	code := runFile([]string{tmpFile}, Flags{Yes: true, NoBackup: true, Quiet: true}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 0, code)
 
 	// No .bak should exist.
@@ -74,35 +90,26 @@ func TestRunFile_WriteNoBackup(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestRunFile_Output(t *testing.T) {
-	tmpDir := t.TempDir()
-	outFile := filepath.Join(tmpDir, "output.json")
-
-	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	code := runFile([]string{"../../testdata/claude.json"}, Flags{Output: outFile, Quiet: true}, stdout, stderr)
-	assert.Equal(t, 0, code)
-
-	content, err := os.ReadFile(outFile)
-	require.NoError(t, err)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(content, &out))
-}
-
 func TestRunFile_DryRun(t *testing.T) {
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	code := runFile([]string{"../../testdata/claude.json"}, Flags{DryRun: true}, stdout, stderr)
+	code := runFile([]string{"../../testdata/claude.json"}, Flags{DryRun: true}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 0, code)
 	assert.Empty(t, stdout.String()) // No JSON output.
 	assert.Contains(t, stderr.String(), "Changes:")
 }
 
 func TestRunFile_MixedTransports(t *testing.T) {
+	tmpDir := t.TempDir()
+	outFile := filepath.Join(tmpDir, "output.json")
+
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	code := runFile([]string{"../../testdata/mixed_transports.json"}, Flags{Quiet: true}, stdout, stderr)
+	code := runFile([]string{"../../testdata/mixed_transports.json"}, Flags{Output: outFile, Yes: true, Quiet: true}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 0, code)
 
+	content, err := os.ReadFile(outFile)
+	require.NoError(t, err)
 	var out map[string]any
-	require.NoError(t, json.Unmarshal(stdout.Bytes(), &out))
+	require.NoError(t, json.Unmarshal(content, &out))
 	servers := out["mcpServers"].(map[string]any)
 
 	// stdio-server should be wrapped.
@@ -119,19 +126,12 @@ func TestRunFile_MixedTransports(t *testing.T) {
 }
 
 func TestRunFile_AlreadyWrapped(t *testing.T) {
+	// All servers already wrapped — no changes needed.
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	code := runFile([]string{"../../testdata/already_wrapped.json"}, Flags{Quiet: true}, stdout, stderr)
+	code := runFile([]string{"../../testdata/already_wrapped.json"}, Flags{Yes: true, Quiet: true}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 0, code)
-
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(stdout.Bytes(), &out))
-	servers := out["mcpServers"].(map[string]any)
-	gh := servers["github-server"].(map[string]any)
-	assert.Equal(t, "cmd.exe", gh["command"])
-	args := gh["args"].([]any)
-	assert.Equal(t, "/c", args[0])
-	// Should NOT double-wrap.
-	assert.Equal(t, "npx", args[1])
+	// No output since nothing changed.
+	assert.Empty(t, stdout.String())
 }
 
 func TestRunFile_WriteIncrementsBackup(t *testing.T) {
@@ -142,12 +142,12 @@ func TestRunFile_WriteIncrementsBackup(t *testing.T) {
 	tmpFile := filepath.Join(tmpDir, "test.json")
 	require.NoError(t, os.WriteFile(tmpFile, src, 0644))
 
-	// Pre-create .bak (simulating an existing backup from another tool).
+	// Pre-create .bak.
 	existingBak := []byte("existing backup content")
 	require.NoError(t, os.WriteFile(tmpFile+".bak", existingBak, 0644))
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	code := runFile([]string{tmpFile}, Flags{Write: true, Quiet: true}, stdout, stderr)
+	code := runFile([]string{tmpFile}, Flags{Yes: true, Quiet: true}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 0, code)
 
 	// Original .bak should be untouched.
@@ -174,7 +174,7 @@ func TestRunFile_WriteIncrementsMultiple(t *testing.T) {
 	require.NoError(t, os.WriteFile(tmpFile+".bak2", []byte("bak2"), 0644))
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	code := runFile([]string{tmpFile}, Flags{Write: true, Quiet: true}, stdout, stderr)
+	code := runFile([]string{tmpFile}, Flags{Yes: true, Quiet: true}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 0, code)
 
 	// .bak and .bak2 untouched.
@@ -199,9 +199,29 @@ func TestRunFile_WriteShowsBackupPath(t *testing.T) {
 	require.NoError(t, os.WriteFile(tmpFile+".bak", []byte("old"), 0644))
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	code := runFile([]string{tmpFile}, Flags{Write: true}, stdout, stderr)
+	code := runFile([]string{tmpFile}, Flags{Yes: true}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 0, code)
 	assert.Contains(t, stderr.String(), ".bak2")
+}
+
+func TestRunFile_ConfigAlwaysWrite(t *testing.T) {
+	tmpDir := t.TempDir()
+	src, err := os.ReadFile("../../testdata/single_server.json")
+	require.NoError(t, err)
+
+	tmpFile := filepath.Join(tmpDir, "test.json")
+	require.NoError(t, os.WriteFile(tmpFile, src, 0644))
+
+	// Config has always_write_file = true, so no prompt needed.
+	cfg := &config.Config{AlwaysWriteFile: true}
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+	code := runFile([]string{tmpFile}, Flags{Quiet: true}, cfg, stdout, stderr)
+	assert.Equal(t, 0, code)
+
+	// File should be modified.
+	modified, err := os.ReadFile(tmpFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(modified), "cmd.exe")
 }
 
 func TestNextBackupPath(t *testing.T) {
@@ -226,6 +246,6 @@ func TestNextBackupPath(t *testing.T) {
 
 func TestRunFile_NotFound(t *testing.T) {
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	code := runFile([]string{"nonexistent.json"}, Flags{}, stdout, stderr)
+	code := runFile([]string{"nonexistent.json"}, Flags{}, defaultCfg(), stdout, stderr)
 	assert.Equal(t, 1, code)
 }

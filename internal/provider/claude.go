@@ -115,3 +115,24 @@ func (c *Claude) FormatOutput(parsed ParsedCLI, transformed map[string]any) stri
 	result += "\n\n# Note: Using add-json instead of add to work around Claude's /c flag mangling bug"
 	return result
 }
+
+func (c *Claude) ExecArgs(parsed ParsedCLI, transformed map[string]any) (string, []string) {
+	var args []string
+	args = append(args, "mcp", "add-json")
+	if parsed.Scope != "" {
+		args = append(args, "--scope", parsed.Scope)
+	}
+	args = append(args, parsed.ServerName)
+
+	serverDef := make(map[string]any)
+	for k, v := range transformed {
+		serverDef[k] = v
+	}
+	if len(parsed.EnvVars) > 0 {
+		serverDef["env"] = parsed.EnvVars
+	}
+	jsonBytes, _ := json.Marshal(serverDef)
+	args = append(args, string(jsonBytes))
+
+	return "claude", args
+}

@@ -8,11 +8,16 @@ Works with **Claude Code/Desktop**, **VS Code**, **Cursor**, **Zed**, **Amazon Q
 
 ## Quick start
 
-No install needed — just prefix with `npx`:
+No install needed — just prefix with `npx`. Copy any MCP server's install command, add `npx @operatorkit/mcp2win` in front, confirm, done:
 
 ```bash
-npx @operatorkit/mcp2win --write claude_desktop_config.json
+# Converts and runs after confirmation
 npx @operatorkit/mcp2win claude mcp add github-server -- npx -y @modelcontextprotocol/server-github
+# Execute? [y]es / [n]o / [a]lways: y
+
+# Fix a config file (confirms before writing)
+npx @operatorkit/mcp2win claude_desktop_config.json
+
 npx @operatorkit/mcp2win '{"command":"npx","args":["-y","@pkg"]}'
 ```
 
@@ -25,28 +30,31 @@ npm i -g @operatorkit/mcp2win
 Then use directly:
 
 ```bash
-mcp2win --write claude_desktop_config.json
 mcp2win claude mcp add github-server -- npx -y @modelcontextprotocol/server-github
+mcp2win claude_desktop_config.json
 mcp2win '{"command":"npx","args":["-y","@pkg"]}'
 ```
 
 ## Usage
 
-**Transform config files:**
-
-```bash
-mcp2win config.json                        # preview changes
-mcp2win --write config.json                # apply (creates .bak backup)
-mcp2win -o windows_config.json config.json # write to different file
-```
-
-**Translate CLI commands:**
+**Translate & run CLI commands (confirms before executing):**
 
 ```bash
 mcp2win claude mcp add srv -- npx -y @pkg
 mcp2win code --add-mcp '{"name":"srv","command":"npx","args":["-y","@pkg"]}'
 mcp2win qchat mcp add -- npx -y @pkg
 mcp2win gemini mcp add srv -- npx -y @pkg
+mcp2win -y claude mcp add srv -- npx -y @pkg      # skip confirmation
+mcp2win --dry-run claude mcp add srv -- npx -y @pkg  # preview only
+```
+
+**Transform config files (confirms before writing):**
+
+```bash
+mcp2win config.json                        # confirm + write (creates .bak backup)
+mcp2win -y config.json                     # skip confirmation
+mcp2win -o windows_config.json config.json # write to different file
+mcp2win --dry-run config.json              # preview only
 ```
 
 **Convert JSON (inline or stdin):**
@@ -56,15 +64,24 @@ mcp2win '{"command":"npx","args":["-y","@pkg"]}'
 cat config.json | mcp2win
 ```
 
+**Preferences:**
+
+```bash
+mcp2win config get                              # show preferences
+mcp2win config set always_exec_cli true         # skip CLI confirmation
+mcp2win config set always_write_file true       # skip file confirmation
+mcp2win config reset                            # reset all
+```
+
 ## Flags
 
 | Flag | Description |
 |---|---|
-| `--write` | Write changes back to file (creates `.bak` backup) |
-| `--no-backup` | Skip `.bak` when using `--write` |
+| `--yes`, `-y` | Skip confirmation prompt |
+| `--dry-run` | Preview only, no action |
+| `--quiet` | Suppress preview output |
+| `--no-backup` | Skip `.bak` when writing files |
 | `-o <path>` | Write to a different file |
-| `--dry-run` | Preview only, no output |
-| `--quiet` | JSON output only, no preview |
 | `--unwrap` | Reverse: remove `cmd.exe /c` wrapping |
 | `--resolve` | Resolve commands to absolute paths via PATH/PATHEXT |
 | `--no-color` | Disable colored output |

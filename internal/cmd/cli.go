@@ -3,13 +3,15 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/operator-kit/mcp2win/internal/color"
+	"github.com/operator-kit/mcp2win/internal/config"
 	"github.com/operator-kit/mcp2win/internal/provider"
 	"github.com/operator-kit/mcp2win/internal/transform"
 )
 
-func runCLI(positional []string, flags Flags, stdout, stderr io.Writer) int {
+func runCLI(positional []string, flags Flags, cfg *config.Config, stdout, stderr io.Writer) int {
 	if len(positional) == 0 {
 		printUsage(stderr)
 		return 1
@@ -18,7 +20,7 @@ func runCLI(positional []string, flags Flags, stdout, stderr io.Writer) int {
 	p, consumed := provider.DetectProvider(positional)
 	if p == nil {
 		// Unknown provider — try generic wrapping.
-		return runGenericCLI(positional, flags, stdout, stderr)
+		return runGenericCLI(positional, flags, cfg, stdout, stderr)
 	}
 
 	remaining := positional[consumed:]
@@ -58,12 +60,28 @@ func runCLI(positional []string, flags Flags, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	output := p.FormatOutput(parsed, transformed)
-	fmt.Fprintln(stdout, output)
-	return 0
+	// Show preview.
+	preview := p.FormatOutput(parsed, transformed)
+	if !flags.Quiet {
+		fmt.Fprintln(stderr, color.Dim(preview))
+	}
+
+	// --dry-run: print command to stdout, don't execute.
+	if flags.DryRun {
+		fmt.Fprintln(stdout, preview)
+		return 0
+	}
+
+	// Confirm before executing.
+	if !confirmAction("Execute?", "always_exec_cli", flags, cfg, stderr) {
+		return 0
+	}
+
+	executable, execArgs := p.ExecArgs(parsed, transformed)
+	return ExecFn(executable, execArgs)
 }
 
-func runGenericCLI(positional []string, flags Flags, stdout, stderr io.Writer) int {
+func runGenericCLI(positional []string, flags Flags, cfg *config.Config, stdout, stderr io.Writer) int {
 	// Find -- separator.
 	dashIdx := -1
 	for i, a := range positional {
@@ -98,14 +116,25 @@ func runGenericCLI(positional []string, flags Flags, stdout, stderr io.Writer) i
 	parts = append(parts, "--", "cmd.exe", "/c")
 	parts = append(parts, cmdArgs...)
 
-	result := ""
-	for i, p := range parts {
-		if i > 0 {
-			result += " "
-		}
-		result += p
+	display := strings.Join(parts, " ")
+
+	// Show preview.
+	if !flags.Quiet {
+		fmt.Fprintln(stderr, color.Dim(display))
 	}
 
-	fmt.Fprintln(stdout, result)
-	return 0
+	// --dry-run: print command to stdout, don't execute.
+	if flags.DryRun {
+		fmt.Fprintln(stdout, display)
+		return 0
+	}
+
+	// Confirm before executing.
+	if !confirmAction("Execute?", "always_exec_cli", flags, cfg, stderr) {
+		return 0
+	}
+
+	executable := parts[0]
+	execArgs := parts[1:]
+	return ExecFn(executable, execArgs)
 }

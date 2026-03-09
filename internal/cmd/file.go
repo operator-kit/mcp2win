@@ -8,11 +8,12 @@ import (
 	"strconv"
 
 	"github.com/operator-kit/mcp2win/internal/color"
+	"github.com/operator-kit/mcp2win/internal/config"
 	"github.com/operator-kit/mcp2win/internal/resolve"
 	"github.com/operator-kit/mcp2win/internal/transform"
 )
 
-func runFile(positional []string, flags Flags, stdout, stderr io.Writer) int {
+func runFile(positional []string, flags Flags, cfg *config.Config, stdout, stderr io.Writer) int {
 	if len(positional) == 0 {
 		fmt.Fprintln(stderr, "Error: no file specified")
 		return 1
@@ -62,11 +63,25 @@ func runFile(positional []string, flags Flags, stdout, stderr io.Writer) int {
 		result, results = transform.TransformAll(data, key, flags.Unwrap, flags.Resolve, lookupFn)
 	}
 
+	// Show preview.
 	if !flags.Quiet {
 		printPreview(stderr, results)
 	}
 
+	// --dry-run: preview only, no write.
 	if flags.DryRun {
+		return 0
+	}
+
+	// Check if there are any changes to write.
+	anyChanged := false
+	for _, r := range results {
+		if r.Changed {
+			anyChanged = true
+			break
+		}
+	}
+	if !anyChanged {
 		return 0
 	}
 
@@ -76,37 +91,38 @@ func runFile(positional []string, flags Flags, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	// Write to file.
-	if flags.Write || flags.Output != "" {
-		outPath := filePath
-		if flags.Output != "" {
-			outPath = flags.Output
-		}
+	outPath := filePath
+	if flags.Output != "" {
+		outPath = flags.Output
+	}
 
-		// Create backup unless --no-backup or writing to a different file.
-		if !flags.NoBackup && flags.Output == "" {
-			bakPath := nextBackupPath(filePath)
-			if err := os.WriteFile(bakPath, input, 0644); err != nil {
-				fmt.Fprintf(stderr, "Error creating backup: %v\n", err)
-				return 1
-			}
-			if !flags.Quiet {
-				fmt.Fprintf(stderr, "%s %s\n", color.Dim("Backup:"), bakPath)
-			}
-		}
-
-		if err := os.WriteFile(outPath, append(output, '\n'), 0644); err != nil {
-			fmt.Fprintf(stderr, "Error writing file: %v\n", err)
-			return 1
-		}
-		if !flags.Quiet {
-			fmt.Fprintf(stderr, "%s %s\n", color.Green("Written:"), outPath)
-		}
+	// Confirm before writing.
+	prompt := fmt.Sprintf("Write changes to %s?", outPath)
+	if !confirmAction(prompt, "always_write_file", flags, cfg, stderr) {
+		// Still output JSON to stdout so it's not lost.
+		fmt.Fprintln(stdout, string(output))
 		return 0
 	}
 
-	// Default: print to stdout.
-	fmt.Fprintln(stdout, string(output))
+	// Create backup unless --no-backup or writing to a different file.
+	if !flags.NoBackup && flags.Output == "" {
+		bakPath := nextBackupPath(filePath)
+		if err := os.WriteFile(bakPath, input, 0644); err != nil {
+			fmt.Fprintf(stderr, "Error creating backup: %v\n", err)
+			return 1
+		}
+		if !flags.Quiet {
+			fmt.Fprintf(stderr, "%s %s\n", color.Dim("Backup:"), bakPath)
+		}
+	}
+
+	if err := os.WriteFile(outPath, append(output, '\n'), 0644); err != nil {
+		fmt.Fprintf(stderr, "Error writing file: %v\n", err)
+		return 1
+	}
+	if !flags.Quiet {
+		fmt.Fprintf(stderr, "%s %s\n", color.Green("Written:"), outPath)
+	}
 	return 0
 }
 

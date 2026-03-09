@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/operator-kit/mcp2win/internal/color"
+	"github.com/operator-kit/mcp2win/internal/config"
 )
 
 var (
@@ -23,13 +24,13 @@ func SetVersion(version, commit, date string) {
 
 // Flags holds parsed CLI flags.
 type Flags struct {
-	Write    bool
 	NoBackup bool
 	Output   string
 	DryRun   bool
 	Quiet    bool
 	Unwrap   bool
 	Resolve  bool
+	Yes      bool
 	NoColor  bool
 	Version  bool
 	Help     bool
@@ -63,13 +64,18 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// Mode detection.
 	mode := detectMode(positional, stdin)
 
+	// Load user config for modes that need it.
+	cfg, _ := config.Load("")
+
 	switch mode {
+	case modeConfig:
+		return runConfig(positional[1:], stdout, stderr)
 	case modeCLI:
-		return runCLI(positional, flags, stdout, stderr)
+		return runCLI(positional, flags, cfg, stdout, stderr)
 	case modeJSON:
 		return runJSON(positional, flags, stdin, stdout, stderr)
 	case modeFile:
-		return runFile(positional, flags, stdout, stderr)
+		return runFile(positional, flags, cfg, stdout, stderr)
 	default:
 		printUsage(stderr)
 		return 1
@@ -83,6 +89,7 @@ const (
 	modeCLI
 	modeJSON
 	modeFile
+	modeConfig
 )
 
 func detectMode(positional []string, stdin io.Reader) mode {
@@ -98,6 +105,11 @@ func detectMode(positional []string, stdin io.Reader) mode {
 	}
 
 	first := positional[0]
+
+	// Config subcommand.
+	if strings.ToLower(first) == "config" {
+		return modeConfig
+	}
 
 	// Known provider → Mode 1.
 	if knownProviders[strings.ToLower(first)] {
@@ -125,7 +137,7 @@ func detectMode(positional []string, stdin io.Reader) mode {
 }
 
 // extractFlags pre-scans args and separates flags from positional args.
-// This allows flags to appear anywhere (e.g., `mcp2win file.json --write`).
+// This allows flags to appear anywhere (e.g., `mcp2win file.json --yes`).
 func extractFlags(args []string) (Flags, []string) {
 	var f Flags
 	var positional []string
@@ -134,8 +146,6 @@ func extractFlags(args []string) (Flags, []string) {
 	for i < len(args) {
 		a := args[i]
 		switch a {
-		case "--write":
-			f.Write = true
 		case "--no-backup":
 			f.NoBackup = true
 		case "-o":
@@ -151,6 +161,8 @@ func extractFlags(args []string) (Flags, []string) {
 			f.Unwrap = true
 		case "--resolve":
 			f.Resolve = true
+		case "--yes", "-y":
+			f.Yes = true
 		case "--no-color":
 			f.NoColor = true
 		case "--version", "-v":

@@ -69,3 +69,24 @@ func (g *Gemini) FormatOutput(parsed ParsedCLI, transformed map[string]any) stri
 	result += fmt.Sprintf("\n\n# Note: Gemini CLI handles Windows paths natively since Oct 2025 — you may not need this")
 	return result
 }
+
+func (g *Gemini) ExecArgs(parsed ParsedCLI, transformed map[string]any) (string, []string) {
+	var args []string
+	args = append(args, "mcp", "add")
+	if parsed.ServerName != "" {
+		args = append(args, parsed.ServerName)
+	}
+	args = append(args, "--")
+
+	cmd, _ := transformed["command"].(string)
+	args = append(args, cmd)
+	if tArgs, ok := transformed["args"].([]any); ok {
+		for _, arg := range tArgs {
+			if s, ok := arg.(string); ok {
+				args = append(args, s)
+			}
+		}
+	}
+
+	return "gemini", args
+}
