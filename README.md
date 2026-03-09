@@ -6,7 +6,7 @@ Every MCP server README assumes macOS or Linux. You copy the config, paste it in
 
 Works with **Claude Code/Desktop**, **VS Code**, **Cursor**, **Zed**, **Amazon Q**, and **Gemini CLI**
 
-Copy any install command, prefix with `mcp2win`, confirm — done.
+Copy any install command, prefix with `mcp2win`, confirm — done. Or convert online at [mcp2win.sh](https://mcp2win.sh).
 
 ## Quick start
 
@@ -34,7 +34,7 @@ npm i -g @operatorkit/mcp2win
 # or with go
 go install github.com/operator-kit/mcp2win/cmd/mcp2win@latest
 
-# or download a binary from GitHub Releases
+# or download a binary from https://github.com/operator-kit/mcp2win/releases
 ```
 
 ## Usage

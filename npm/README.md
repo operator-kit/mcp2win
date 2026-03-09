@@ -6,6 +6,8 @@ Every MCP server README assumes macOS or Linux. You copy the config, paste it in
 
 Works with **Claude Code/Desktop**, **VS Code**, **Cursor**, **Zed**, **Amazon Q**, and **Gemini CLI**
 
+Convert online at [mcp2win.sh](https://mcp2win.sh) or use the CLI below.
+
 ## Quick start
 
 No install needed — just prefix with `npx`. Copy any MCP server's install command, add `npx @operatorkit/mcp2win` in front, confirm, done:
