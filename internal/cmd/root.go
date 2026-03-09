@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/operator-kit/mcp2win/internal/color"
 	"github.com/operator-kit/mcp2win/internal/config"
+	"github.com/operator-kit/mcp2win/internal/selfupdate"
 )
 
 var (
@@ -42,6 +44,9 @@ var knownProviders = map[string]bool{
 	"qchat": true, "q": true,
 }
 
+// updateResult receives background update check results.
+var updateResult chan string
+
 // Run is the main entry point. Returns exit code.
 func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	color.DisableIfFlag(args)
@@ -64,22 +69,44 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// Mode detection.
 	mode := detectMode(positional, stdin)
 
+	// Start background update check (skip for update/config/version/help).
+	if mode != modeUpdate && mode != modeConfig {
+		startUpdateCheck()
+	}
+
 	// Load user config for modes that need it.
 	cfg, _ := config.Load("")
 
+	var exitCode int
 	switch mode {
+	case modeUpdate:
+		exitCode = runUpdate(stdout, stderr)
 	case modeConfig:
-		return runConfig(positional[1:], stdout, stderr)
+		exitCode = runConfig(positional[1:], stdout, stderr)
 	case modeCLI:
-		return runCLI(positional, flags, cfg, stdout, stderr)
+		exitCode = runCLI(positional, flags, cfg, stdout, stderr)
 	case modeJSON:
-		return runJSON(positional, flags, stdin, stdout, stderr)
+		exitCode = runJSON(positional, flags, stdin, stdout, stderr)
 	case modeFile:
-		return runFile(positional, flags, cfg, stdout, stderr)
+		exitCode = runFile(positional, flags, cfg, stdout, stderr)
 	default:
 		printUsage(stderr)
-		return 1
+		exitCode = 1
 	}
+
+	// Show background update result (non-blocking).
+	if updateResult != nil {
+		select {
+		case latest := <-updateResult:
+			if latest != "" {
+				fmt.Fprintf(stderr, "\nA new version of mcp2win is available: v%s (current: v%s)\nRun 'mcp2win update' to upgrade.\n", latest, appVersion)
+			}
+		default:
+			// goroutine hasn't finished, skip silently
+		}
+	}
+
+	return exitCode
 }
 
 type mode int
@@ -90,6 +117,7 @@ const (
 	modeJSON
 	modeFile
 	modeConfig
+	modeUpdate
 )
 
 func detectMode(positional []string, stdin io.Reader) mode {
@@ -106,9 +134,12 @@ func detectMode(positional []string, stdin io.Reader) mode {
 
 	first := positional[0]
 
-	// Config subcommand.
-	if strings.ToLower(first) == "config" {
+	// Subcommands.
+	switch strings.ToLower(first) {
+	case "config":
 		return modeConfig
+	case "update":
+		return modeUpdate
 	}
 
 	// Known provider → Mode 1.
@@ -134,6 +165,22 @@ func detectMode(positional []string, stdin io.Reader) mode {
 
 	// Fallback → Mode 1 (unknown provider).
 	return modeCLI
+}
+
+func startUpdateCheck() {
+	if os.Getenv("MCP2WIN_NO_UPDATE_CHECK") == "1" {
+		return
+	}
+	if appVersion == "dev" {
+		return
+	}
+	if !selfupdate.ShouldCheck(appVersion) {
+		return
+	}
+	updateResult = make(chan string, 1)
+	go func() {
+		updateResult <- selfupdate.CheckForUpdate(appVersion)
+	}()
 }
 
 // extractFlags pre-scans args and separates flags from positional args.

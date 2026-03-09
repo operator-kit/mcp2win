@@ -18,6 +18,7 @@ Usage:
   echo '<json>' | mcp2win [flags]      Transform JSON from stdin
   mcp2win [flags] claude mcp add ...   Translate & run CLI command
   mcp2win config <command>             View/modify preferences
+  mcp2win update                       Update to the latest version
 
 Flags:
   --yes, -y    Skip confirmation prompt (non-interactive mode)

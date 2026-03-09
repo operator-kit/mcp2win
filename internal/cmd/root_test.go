@@ -90,6 +90,7 @@ func TestDetectMode(t *testing.T) {
 		{"inline JSON array", []string{`[{"command":"npx"}]`}, modeJSON},
 		{"json file extension", []string{"config.json"}, modeFile},
 		{"config subcommand", []string{"config", "get"}, modeConfig},
+		{"update subcommand", []string{"update"}, modeUpdate},
 		{"unknown command (fallback)", []string{"somecmd", "arg1"}, modeCLI},
 		{"empty args", nil, modeUnknown},
 	}
